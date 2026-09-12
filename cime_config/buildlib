@@ -245,20 +245,16 @@ def _copy2_as_needed(src: str, dst: str) -> None:
     Wrapper around `shutil.copy2`. Copy the file `src` to the file or directory `dst` as needed.
     """
 
-    if os.path.isfile(src):
-        if os.path.isfile(dst):
-            if int(os.path.getmtime(src)) != int(os.path.getmtime(dst)) or os.path.getsize(src) != os.path.getsize(dst):
-                # `src` and `dst` are both files but their modification time or size differ.
-                # Example scenario: User modified some existing source code files.
-                shutil.copy2(src, dst)
-        elif os.path.isdir(dst) and os.path.isfile(os.path.join(dst, os.path.basename(src))):
-            dst = os.path.join(dst, os.path.basename(src))
-            _copy2_as_needed(src, dst)
-        else:
-            if os.path.isdir(dst) or os.path.isdir(os.path.dirname(dst)):
-                # `src` is a new file that does not exist at `dst`.
-                # Example scenario: User added some new source code files.
-                shutil.copy2(src, dst)
+    if os.path.isdir(dst):
+        dst = os.path.join(dst, os.path.basename(src))
+
+    if os.path.isfile(src) and os.path.isfile(dst):
+        if int(os.path.getmtime(src)) == int(os.path.getmtime(dst)) and \
+            os.path.getsize(src) == os.path.getsize(dst):
+            # `src` and `dst` are unchanged. No need to copy.
+            return
+
+    shutil.copy2(src, dst)
 
 ###############################################################################
 def _cmake_default_args(caseroot):
