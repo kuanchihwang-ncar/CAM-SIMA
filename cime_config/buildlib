@@ -159,9 +159,9 @@ def _build_cam():
             ccpp_defs_str = ' '.join(config.cpp_defs)
             cmd += f" USER_CPPDEFS='{ccpp_defs_str}'"
 
-        # If dynamical core is MPAS, prepare its build infrastructure so it can be built along with CAM-SIMA below.
+        # If the dynamical core is MPAS, stage the build tree and determine which optional features to enable.
         if dycore == "mpas":
-            _prepare_mpas(case)
+            _stage_mpas_build_tree(case, _LOGGER)
 
             optional_mpas_features = []
 
@@ -209,34 +209,52 @@ def _build_cam():
         expect(retcode == 0, f"Command {cmd} failed with rc={retcode}")
 
 ###############################################################################
-def _prepare_mpas(case: Case) -> None:
+def _stage_mpas_build_tree(case: Case, logger: logging.Logger | None = None) -> None:
 ###############################################################################
     """
-    Prepare MPAS build infrastructure.
+    Stage the MPAS build tree such that it can be built alongside CAM-SIMA by CIME.
     """
 
     atm_src_root = os.path.normpath(case.get_value("COMP_ROOT_DIR_ATM"))
     atm_bld_root = os.path.normpath(os.path.join(case.get_value("EXEROOT"), "atm", "obj"))
 
-    mpas_dycore_src_root = os.path.join(atm_src_root, "src", "dynamics", "mpas", "dycore", "src")
+    mpas_dycore_src_root = os.path.join(atm_src_root, "src", "dynamics", "mpas")
     mpas_dycore_bld_root = os.path.join(atm_bld_root, "mpas")
 
-    # Make sure `mpas_dycore_src_root` exists. If not, it is likely that `./bin/git-fleximod update` did not succeed.
-    if os.path.isfile(mpas_dycore_src_root):
-        raise FileExistsError(1, "Unexpected file", mpas_dycore_src_root)
+    # Make sure MPAS source tree exists. If not, it is likely that `./bin/git-fleximod update`
+    # did not succeed.
+    if not os.path.isdir(os.path.join(mpas_dycore_src_root, "dycore", "src")):
+        raise FileNotFoundError(
+            1,
+            "MPAS source tree does not exist",
+            os.path.join(mpas_dycore_src_root, "dycore", "src"))
 
-    if not os.path.isdir(mpas_dycore_src_root):
-        raise FileNotFoundError(1, "No such directory", mpas_dycore_src_root)
+    if logger is not None:
+        logger.info("Staging MPAS build tree at %s from %s", mpas_dycore_bld_root, mpas_dycore_src_root)
 
-    # MPAS supports "in-source" build only. Copy source code to `mpas_dycore_bld_root` to avoid polluting `mpas_dycore_src_root`.
-    if os.path.isfile(mpas_dycore_bld_root):
-        raise FileExistsError(1, "Unexpected file", mpas_dycore_bld_root)
-
-    shutil.copytree(mpas_dycore_src_root, mpas_dycore_bld_root, copy_function=_copy2_as_needed, dirs_exist_ok=True)
-    shutil.move(os.path.join(mpas_dycore_bld_root, "Makefile"), os.path.join(mpas_dycore_bld_root, "Makefile.CESM"))
-
-    shutil.copytree(os.path.normpath(os.path.join(mpas_dycore_src_root, os.pardir, os.pardir, "assets")), mpas_dycore_bld_root, copy_function=_copy2_as_needed, dirs_exist_ok=True)
-    shutil.copytree(os.path.normpath(os.path.join(mpas_dycore_src_root, os.pardir, os.pardir, "driver")), os.path.join(mpas_dycore_bld_root, "driver"), copy_function=_copy2_as_needed, dirs_exist_ok=True)
+    # MPAS supports "in-source" build only. Copy source code to build tree to avoid polluting
+    # source tree.
+    shutil.copytree(
+        os.path.join(mpas_dycore_src_root, "dycore", "src"),
+        mpas_dycore_bld_root,
+        copy_function=_copy2_as_needed,
+        dirs_exist_ok=True)
+    shutil.move(
+        os.path.join(mpas_dycore_bld_root, "Makefile"),
+        os.path.join(mpas_dycore_bld_root, "Makefile.CESM"))
+    shutil.copytree(
+        os.path.join(mpas_dycore_src_root, "assets"),
+        mpas_dycore_bld_root,
+        ignore=lambda path, names: [name for name in names
+                                    if not name.startswith("Makefile") and
+                                    not name.endswith(".patch")], # Only copy build-related assets.
+        copy_function=_copy2_as_needed,
+        dirs_exist_ok=True)
+    shutil.copytree(
+        os.path.join(mpas_dycore_src_root, "driver"),
+        os.path.join(mpas_dycore_bld_root, "driver"),
+        copy_function=_copy2_as_needed,
+        dirs_exist_ok=True)
 
 ###############################################################################
 def _copy2_as_needed(src: str, dst: str) -> None:
