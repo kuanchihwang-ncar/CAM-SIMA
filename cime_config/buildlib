@@ -163,17 +163,15 @@ def _build_cam():
         if dycore == "mpas":
             _stage_mpas_build_tree(case)
 
-            optional_mpas_features = []
+            optional_mpas_features = _detect_optional_mpas_features(case, config)
 
-            if case.get_value("USE_ESMF_LIB"):
-                optional_mpas_features.append("+ESMF_LIBRARY")
-                optional_mpas_features.append("+PERF_MOD_LIBRARY")
+            if optional_mpas_features:
+                cmd += f" OPTIONAL_MPAS_FEATURES=\"{" ".join(optional_mpas_features)}\""
 
-            if config.get_value("dyn_kind") == "REAL32":
-                optional_mpas_features.append("+SINGLE_PRECISION")
+                if "+SCOTCH_LIBRARY" in optional_mpas_features:
+                    cmd += f" SCOTCH=\"{case.get_value("SCOTCH_PATH")}\""
 
-            if len(optional_mpas_features) > 0:
-                cmd += " OPTIONAL_MPAS_FEATURES=\"" + " ".join(optional_mpas_features) + "\""
+                    _add_scotch_to_cam_linked_libs(case)
 
         # If MUSICA-CCPP scheme is used in a suite, download
         # the MUSICA configuration and build the MUSICA library
@@ -252,6 +250,59 @@ def _stage_mpas_build_tree(case: Case) -> None:
         os.path.join(mpas_dycore_bld_root, "driver"),
         copy_function=_copy2_as_needed,
         dirs_exist_ok=True)
+
+###############################################################################
+def _detect_optional_mpas_features(case: Case, config: ConfigCAM) -> list[str]:
+###############################################################################
+    """
+    Detect the optional MPAS features to enable based on the case and configuration.
+    """
+
+    optional_mpas_features = []
+
+    if case.get_value("USE_ESMF_LIB"):
+        optional_mpas_features.append("+ESMF_LIBRARY")
+        optional_mpas_features.append("+PERF_MOD_LIBRARY")
+
+    if case.get_value("SCOTCH_PATH").strip():
+        optional_mpas_features.append("+SCOTCH_LIBRARY")
+
+    if config.get_value("dyn_kind").strip() == "REAL32":
+        optional_mpas_features.append("+SINGLE_PRECISION")
+
+    return optional_mpas_features
+
+###############################################################################
+def _add_scotch_to_cam_linked_libs(case: Case) -> None:
+###############################################################################
+    """
+    Add the linking flags for the (PT-)Scotch library to `CAM_LINKED_LIBS`.
+    """
+
+    cam_linked_libs = case.get_value("CAM_LINKED_LIBS").strip()
+    scotch_path = case.get_value("SCOTCH_PATH").strip()
+
+    SCOTCH_LDFLAGS = (
+        f"-L{os.path.join(scotch_path, "lib64")}"
+        if os.path.isdir(os.path.join(scotch_path, "lib64"))
+        else f"-L{os.path.join(scotch_path, "lib")}"
+    )
+    SCOTCH_LIBS = "-lptscotch -lscotch -lptscotcherr"
+
+    if f"{SCOTCH_LDFLAGS} {SCOTCH_LIBS}" not in cam_linked_libs:
+        # Cannot use `case.set_value` here because the case is read-only at this point.
+        command = [
+            "./xmlchange",
+            f"CAM_LINKED_LIBS={cam_linked_libs} {SCOTCH_LDFLAGS} {SCOTCH_LIBS}"
+        ]
+
+        subprocess.run(
+            command,
+            capture_output=True,
+            shell=False,
+            cwd=case.get_value("CASEROOT"),
+            check=True,
+            text=True)
 
 ###############################################################################
 def _copy2_as_needed(src: str, dst: str) -> None:

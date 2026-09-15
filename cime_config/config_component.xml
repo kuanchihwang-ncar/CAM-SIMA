@@ -138,7 +138,7 @@
   <entry id="CAM_LINKED_LIBS">
     <type>char</type>
     <valid_values></valid_values>
-    <default_value> </default_value>
+    <default_value></default_value>
     <values match="last" modifier="additive">
       <!-- Add MPAS if using mpas grid and not using physics testbed -->
       <value compset="^((?!_CAM%PHYSTEST).)*$" grid="a%mpasa[0-9]+">-lmpas</value>
@@ -149,6 +149,19 @@
       CAM-SIMA linked libraries. The libraries are built by
       CAM-SIMA's buildlib script and should be included
       during linking of the model executable.
+    </desc>
+  </entry>
+
+  <entry id="SCOTCH_PATH">
+    <type>char</type>
+    <valid_values></valid_values>
+    <default_value></default_value>
+    <group>build_component_cam</group>
+    <file>env_build.xml</file>
+    <desc>
+      Installation path to the optional (PT-)Scotch library. If provided, MPAS dynamical core will
+      build and link against (PT-)Scotch to enable online graph partitioning, eliminating the need
+      to precompute graph decomposition files in advance (i.e., *.graph.info.part.*).
     </desc>
   </entry>
 
