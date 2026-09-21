@@ -492,7 +492,7 @@ contains
         ! Module(s) from MPAS.
         use dyn_mpas_procedures, only: stringify
 
-        class(mpas_dynamical_core_type), intent(in) :: self
+        class(mpas_dynamical_core_type), intent(inout) :: self
         character(*), intent(in) :: namelist_path, cf_calendar
         integer, intent(in) :: start_date_time(6), & ! YYYY, MM, DD, hh, mm, ss.
                                stop_date_time(6),  & ! YYYY, MM, DD, hh, mm, ss.
@@ -613,7 +613,7 @@ contains
         use mpas_framework, only: mpas_framework_init_phase2
         use mpas_stream_inquiry, only: mpas_stream_inquiry_new_streaminfo
 
-        class(mpas_dynamical_core_type), intent(in) :: self
+        class(mpas_dynamical_core_type), intent(inout) :: self
         type(iosystem_desc_t), pointer, intent(in) :: pio_iosystem
 
         character(*), parameter :: subname = 'dyn_mpas_subdriver::dyn_mpas_init_phase2'
@@ -954,9 +954,11 @@ contains
                 call self % model_error('Mismatch between numbers of constituents and their names', subname, __LINE__)
             end if
 
-            if (any(len_trim(adjustl(constituent_name)) > len(self % constituent_name))) then
-                call self % model_error('Constituent names are too long', subname, __LINE__)
-            end if
+            do i = 1, size(constituent_name)
+                if (len_trim(adjustl(constituent_name(i))) > len(self % constituent_name)) then
+                    call self % model_error('Constituent names are too long', subname, __LINE__)
+                end if
+            end do
 
             self % constituent_name(:) = adjustl(constituent_name)
             self % is_water_species(:) = is_water_species(:)

@@ -59,6 +59,10 @@ export SCC             := $(strip $(CC))
 export SCXX            := $(strip $(CXX))
 export SFC             := $(strip $(FC))
 
+override FFLAGS := $(strip $(FFLAGS)) $(OPENACC_GPU_FLAGS)
+export FFLAGS
+MAKEOVERRIDES := $(filter-out FFLAGS=%,$(MAKEOVERRIDES))
+
 # Check for optional features.
 is-enabled = $(if $(filter +$(1),$(sort $(strip $(OPTIONAL_MPAS_FEATURES)))),true,false)
 
@@ -149,6 +153,7 @@ $(LIBROOT)/libmpas.a: libmpas.a
 
 libmpas.a: $(AUTOCLEAN_DEPS) dycore externals frame ops subdrv
 	$(AR) $(ARFLAGS) < libmpas-archiver-script.txt
+	$(LN) framework/mpas_*_types.mod .
 
 .PHONY: libmpas-clean
 libmpas-clean: clean
