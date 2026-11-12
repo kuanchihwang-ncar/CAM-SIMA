@@ -2522,7 +2522,7 @@
       <ic_file_input_names>cnst_NUMSNO tnd_nsnow pbuf_tnd_nsnow</ic_file_input_names>
     </variable>
 
-    <!-- CAM with MPAS-like "convection-permitting" physics suite (EXPERIMENTAL) -->
+    <!-- MPAS-like "convection-permitting" physics suite (EXPERIMENTAL) -->
     <!-- Variables for the TEMPO microphysics scheme (mp_tempo) -->
     <variable local_name="nwfa2d"
               standard_name="tendency_of_hygroscopic_aerosols_at_surface_adjacent_layer"
